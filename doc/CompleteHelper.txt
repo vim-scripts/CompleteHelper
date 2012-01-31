@@ -1,0 +1,147 @@
+*CompleteHelper.txt*    Generic functions to support custom insert mode completions. 
+
+		      COMPLETE HELPER    by Ingo Karkat
+							  *CompleteHelper.vim*
+description			|CompleteHelper-description|
+usage				|CompleteHelper-usage|
+example				|CompleteHelper-example|
+installation			|CompleteHelper-installation|
+limitations			|CompleteHelper-limitations|
+known problems			|CompleteHelper-known-problems|
+todo				|CompleteHelper-todo|
+history				|CompleteHelper-history|
+
+==============================================================================
+DESCRIPTION					  *CompleteHelper-description*
+
+Via 'completefunc' and the |i_CTRL-X_CTRL-U| command, it is possible to define
+custom |complete-functions|. To write extensions or alternatives to the
+built-in completion functions, you often need to derive the completion
+candidates from Vim's buffers and windows. This plugin offers generic
+functions around extraction and handling of completion matches (something that
+Vim doesn't yet expose to Vimscript), so that building your own custom
+completion is quick and simple. 
+
+HOW IT WORKS								     *
+
+SEE ALSO								     *
+
+The following custom completions use this plugin: 
+
+CamelCaseComplete	(vimscript #0000): Expands CamelCaseWords and
+			underscore_words based on anchor characters for each
+			word fragment.
+
+RELATED WORKS								     *
+
+==============================================================================
+USAGE							*CompleteHelper-usage*
+
+This plugin defines several functions. The following is an overview; you'll
+find the details directly in the implementation files in the .vim/autoload/
+directory. 
+
+CompleteHelper#FindMatches( matches, pattern, options )
+
+The main helper functions that finds all matches of a:pattern in buffers
+specified by a:options, and returns them in the List a:matches that can be
+returned as-is to Vim. 
+
+
+CompleteHelper#ExtractText( startPos, endPos, matchObj )
+
+Low-level function for extracting text from the current buffer. This is the
+default extractor used by CompleteHelper#FindMatches(). 
+
+
+CompleteHelper#Abbreviate( matchObj )
+
+Processes the match objects to make them prettier to display. 
+
+
+CompleteHelper#JoinMultiline( text )
+
+Can be used in CompleteHelper#FindMatches()'s a:options.processor if you want
+to flatten multi-line matches, as the current default behavior of Vim is not
+what users expect. (Newlines are inserted literally as ^@.) 
+
+
+CompleteHelper#Repeat#TestForRepeat()
+
+Some built-in completions support the repetition of a completion, so that
+subsequent words from the completion source are appended. This function allows
+to implement such a repetition for custom completions, too. 
+
+==============================================================================
+EXAMPLE						      *CompleteHelper-example*
+
+Here is a simple completion that completes the keywords in front of the cursor
+from the current file, like the built-in |compl-current| does. From the
+completion base, it constructs a regexp matching all keywords that start with
+the base, and delegates the entire work of finding the matches and building
+the appropriate match objects to CompleteHelper#FindMatches(). 
+>
+    function! SimpleComplete( findstart, base )
+	if a:findstart
+	    " Locate the start of the keyword. 
+	    let l:startCol = searchpos('\k*\%#', 'bn', line('.'))[1]
+	    if l:startCol == 0
+		let l:startCol = col('.')
+	    endif
+	    return l:startCol - 1 " Return byte index, not column. 
+	else
+	    " Find matches starting with a:base. 
+	    let l:matches = []
+	    call CompleteHelper#FindMatches( l:matches, '\V\<' . escape(a:base, '\') . '\k\+', {'complete': '.'} )
+	    return l:matches
+	endif
+    endfunction
+
+    inoremap <C-x><C-z> <C-o>:set completefunc=SimpleComplete<CR><C-x><C-u>
+<
+==============================================================================
+INSTALLATION					 *CompleteHelper-installation*
+
+This script is packaged as a |vimball|. If you have the "gunzip" decompressor
+in your PATH, simply edit the *.vba.gz package in Vim; otherwise, decompress
+the archive first, e.g. using WinZip. Inside Vim, install by sourcing the
+vimball or via the |:UseVimball| command. >
+    vim CompleteHelper.vba.gz
+    :so %
+To uninstall, use the |:RmVimball| command. 
+
+DEPENDENCIES					 *CompleteHelper-dependencies*
+
+- Requires Vim 7.0 or higher. 
+
+==============================================================================
+LIMITATIONS					  *CompleteHelper-limitations*
+
+- Only the '.' (current buffer) and 'w' (other windows) values of 'complete'
+  are currently implemented. As the searched buffers need to be displayed in a
+  window and jumped around for text extraction, this doesn't scale well. I
+  would wish for a built-in Vim function that does this (and supports all
+  values of 'complete'). 
+
+KNOWN PROBLEMS				       *CompleteHelper-known-problems*
+
+TODO							 *CompleteHelper-todo*
+
+IDEAS							*CompleteHelper-ideas*
+
+==============================================================================
+HISTORY						      *CompleteHelper-history*
+
+1.00	31-Jan-2012
+First published version. 
+
+0.01	13-Aug-2008
+Started development. 
+
+==============================================================================
+Copyright: (C) 2008-2012 Ingo Karkat
+The VIM LICENSE applies to this script; see |copyright|. 
+
+Maintainer:	Ingo Karkat <ingo@karkat.de>
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:
