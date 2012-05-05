@@ -1,14 +1,14 @@
 " CompleteHelper/Repeat.vim: Generic functions to support repetition of custom
-" insert mode completions. 
+" insert mode completions.
 "
 " DEPENDENCIES:
 "
 " Copyright: (C) 2011-2012 Ingo Karkat
-"   The VIM LICENSE applies to this script; see ':help copyright'. 
+"   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
-" REVISION	DATE		REMARKS 
+" REVISION	DATE		REMARKS
 "   1.00.001	09-Oct-2011	file creation
 
 let s:record = []
