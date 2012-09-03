@@ -10,6 +10,13 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.11.013	01-Sep-2012	Make a:matchObj in CompleteHelper#ExtractText()
+"				optional; it's not used there, anyway. This
+"				avoids having to pass an empty dictionary just
+"				to satisfy the API.
+"				Introduce a:alreadySearchedBuffers to allow for
+"				swapped order in a:options.complete and to
+"				prepare for additional complete options.
 "   1.10.012	04-May-2012	Factor out CompleteHelper#Abbreviate#Text() to
 "				allow processing of completion menu text, too.
 "   1.00.011	31-Jan-2012	Prepare for publish.
@@ -46,7 +53,7 @@
 "				used match text, not object.
 "	001	13-Aug-2008	file creation
 
-function! CompleteHelper#ExtractText( startPos, endPos, matchObj )
+function! CompleteHelper#ExtractText( startPos, endPos, ... )
 "*******************************************************************************
 "* PURPOSE:
 "   Extract the text between a:startPos and a:endPos from the current buffer.
@@ -88,7 +95,12 @@ function! CompleteHelper#ExtractText( startPos, endPos, matchObj )
     endwhile
     return l:text
 endfunction
-function! s:FindMatchesInCurrentWindow( matches, pattern, matchTemplate, options, isInCompletionBuffer )
+function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern, matchTemplate, options, isInCompletionBuffer )
+    if has_key(a:alreadySearchedBuffers, bufnr(''))
+	return
+    endif
+    let a:alreadySearchedBuffers[bufnr('')] = 1
+
     let l:isBackward = has_key(a:options, 'backward_search')
 
     let l:save_cursor = getpos('.')
@@ -115,7 +127,7 @@ function! s:FindMatchesInCurrentWindow( matches, pattern, matchTemplate, options
 
 	" Initialize the match object and extract the match text.
 	let l:matchObj = copy(a:matchTemplate)
-	let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : CompleteHelper#ExtractText(l:matchPos, l:matchEndPos, l:matchObj))
+	let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : CompleteHelper#ExtractText(l:matchPos, l:matchEndPos))
 
 	" Custom processing of match text.
 	if has_key(a:options, 'processor')
@@ -135,8 +147,7 @@ function! s:FindMatchesInCurrentWindow( matches, pattern, matchTemplate, options
 
     call setpos('.', l:save_cursor)
 endfunction
-function! s:FindMatchesInOtherWindows( matches, pattern, options )
-    let l:searchedBuffers = { bufnr('') : 1 }
+function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, pattern, options )
     let l:originalWinNr = winnr()
 
     " By entering a window, its height is potentially increased from 0 to 1 (the
@@ -149,9 +160,8 @@ function! s:FindMatchesInOtherWindows( matches, pattern, options )
 
 	let l:matchTemplate = { 'menu': bufname('') }
 
-	if ! has_key( l:searchedBuffers, bufnr('') )
-	    call s:FindMatchesInCurrentWindow( a:matches, a:pattern, l:matchTemplate, a:options, 0 )
-	    let l:searchedBuffers[ bufnr('') ] = 1
+	if ! has_key(a:alreadySearchedBuffers, bufnr(''))
+	    call s:FindMatchesInCurrentWindow(a:alreadySearchedBuffers, a:matches, a:pattern, l:matchTemplate, a:options, 0)
 	endif
     endfor
 
@@ -207,11 +217,12 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "   a:matches
 "*******************************************************************************
     let l:complete = get(a:options, 'complete', '')
+    let l:searchedBuffers = {}
     for l:places in split(l:complete, ',')
-	if l:places == '.'
-	    call s:FindMatchesInCurrentWindow( a:matches, a:pattern, {}, a:options, 1 )
-	elseif l:places == 'w'
-	    call s:FindMatchesInOtherWindows( a:matches, a:pattern, a:options )
+	if l:places ==# '.'
+	    call s:FindMatchesInCurrentWindow(l:searchedBuffers, a:matches, a:pattern, {}, a:options, 1)
+	elseif l:places ==# 'w'
+	    call s:FindMatchesInOtherWindows(l:searchedBuffers, a:matches, a:pattern, a:options)
 	endif
     endfor
 endfunction

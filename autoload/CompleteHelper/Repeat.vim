@@ -9,6 +9,8 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.11.002	01-Sep-2012	Make a:matchObj in CompleteHelper#ExtractText()
+"				optional; it's not used there, anyway.
 "   1.00.001	09-Oct-2011	file creation
 
 let s:record = []
@@ -32,10 +34,10 @@ function! CompleteHelper#Repeat#TestForRepeat()
 	let s:repeatCnt += 1
 	let l:bpos = [l:pos[0], l:pos[1] - 1]
 
-	let l:addedText = CompleteHelper#ExtractText(s:lastPos, l:bpos, {})
+	let l:addedText = CompleteHelper#ExtractText(s:lastPos, l:bpos)
 	let s:lastPos = l:pos
 
-	let l:fullText = CompleteHelper#ExtractText(s:startPos, l:bpos, {})
+	let l:fullText = CompleteHelper#ExtractText(s:startPos, l:bpos)
 	return [s:repeatCnt, l:addedText, l:fullText]
     else
 	let s:record = []

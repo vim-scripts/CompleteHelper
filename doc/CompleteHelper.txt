@@ -22,16 +22,39 @@ functions around extraction and handling of completion matches (something that
 Vim doesn't yet expose to Vimscript), so that building your own custom
 completion is quick and simple.
 
-HOW IT WORKS								     *
-
 SEE ALSO								     *
 
 The following custom completions use this plugin:
 
+BidiComplete:		Considers text before AND AFTER the cursor.
+
 CamelCaseComplete:	Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)	anchor characters for each word fragment.
 
-RELATED WORKS								     *
+CustomKeywordComplete:	Expands keywords from a sequence of contained
+			characters.
+
+LongestComplete:	Completes based on the longest possible text before
+			the cursor.
+
+MinLengthComplete:	Only offers completions that add more than n
+			characters.
+
+MotionComplete:		Completes a text chunk determined by {motion} or text
+			object.
+
+MultiWordComplete:	Completes a sequence of words based on anchor
+			characters for each word.
+
+PatternComplete:	Completes matches of queried {pattern} or last search
+			pattern.
+
+PrevInsertComplete:	Recall and insert mode completion for previously
+(vimscript #4185)	inserted text.
+
+RegisterComplete:	Completes register contents.
+
+WORDComplete:	    	Completes an entire sequence of non-blank characters.
 
 ==============================================================================
 USAGE							*CompleteHelper-usage*
@@ -103,10 +126,10 @@ the appropriate match objects to CompleteHelper#FindMatches().
 INSTALLATION					 *CompleteHelper-installation*
 
 This script is packaged as a |vimball|. If you have the "gunzip" decompressor
-in your PATH, simply edit the *.vba.gz package in Vim; otherwise, decompress
+in your PATH, simply edit the *.vmb.gz package in Vim; otherwise, decompress
 the archive first, e.g. using WinZip. Inside Vim, install by sourcing the
 vimball or via the |:UseVimball| command. >
-    vim CompleteHelper.vba.gz
+    vim CompleteHelper*.vmb.gz
     :so %
 To uninstall, use the |:RmVimball| command.
 
@@ -131,6 +154,13 @@ IDEAS							*CompleteHelper-ideas*
 
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
+
+1.11	03-Sep-2012
+- Make a:matchObj in CompleteHelper#ExtractText() optional; it's not used
+  there, anyway. This avoids having to pass an empty dictionary just to
+  satisfy the API.
+- Introduce a:alreadySearchedBuffers to allow for swapped order in
+  a:options.complete and to prepare for additional complete options.
 
 1.10	05-May-2012
 - Factor out CompleteHelper#Abbreviate#Text() to allow processing of
