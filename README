@@ -15,6 +15,15 @@ The following custom completions use this plugin:
 CamelCaseComplete:      Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)       anchor characters for each word fragment.
 
+PatternComplete:	Completes matches of queried {pattern} or last search
+(vimscript #4248)	pattern.
+
+PrevInsertComplete:	Recall and insert mode completion for previously
+(vimscript #4185)	inserted text.
+
+SameFiletypeComplete:	Completion from buffers with the same filetype.
+(vimscript #4242)
+
 USAGE
 This plugin defines several functions. The following is an overview; you'll
 find the details directly in the implementation files in the .vim/autoload/

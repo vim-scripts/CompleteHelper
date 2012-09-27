@@ -26,6 +26,8 @@ SEE ALSO								     *
 
 The following custom completions use this plugin:
 
+AlphaComplete:		Completes any sequence of alphabetic characters.
+
 BidiComplete:		Considers text before AND AFTER the cursor.
 
 CamelCaseComplete:	Expands CamelCaseWords and underscore_words based on
@@ -53,6 +55,9 @@ PrevInsertComplete:	Recall and insert mode completion for previously
 (vimscript #4185)	inserted text.
 
 RegisterComplete:	Completes register contents.
+
+SameFiletypeComplete:	Completion from buffers with the same filetype.
+(vimscript #4242)
 
 WORDComplete:	    	Completes an entire sequence of non-blank characters.
 
@@ -140,11 +145,14 @@ DEPENDENCIES					 *CompleteHelper-dependencies*
 ==============================================================================
 LIMITATIONS					  *CompleteHelper-limitations*
 
-- Only the '.' (current buffer) and 'w' (other windows) values of 'complete'
-  are currently implemented. As the searched buffers need to be displayed in a
-  window and jumped around for text extraction, this doesn't scale well. I
-  would wish for a built-in Vim function that does this (and supports all
-  values of 'complete').
+- Only the '.' (current buffer), 'w' (other windows), and 'b' (other listed
+  buffers) values (the last one with limitations) of 'complete'
+  are currently implemented.
+- As the searched buffers need to be either displayed in a
+  window and jumped around for text extraction, or the buffer contents
+  searched line by line, this doesn't scale well in Vimscript. I would wish
+  for a built-in Vim function that does this (and supports all values of
+  'complete').
 
 KNOWN PROBLEMS				       *CompleteHelper-known-problems*
 
@@ -154,6 +162,18 @@ IDEAS							*CompleteHelper-ideas*
 
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
+
+1.30	27-Sep-2012
+- ENH: Allow skipping of buffers via new a:options.bufferPredicate Funcref.
+- Optimization: Skip search in other windows where there's only one that got
+  searched already by s:FindMatchesInCurrentWindow().
+- Optimization: Only visit window when its buffer wasn't already searched.
+
+1.20	03-Sep-2012 (unreleased)
+- ENH: Implement a:options.complete = 'b' (only supporting single-line matches and no a:options.extractor).
+- Transparently handle 'autochdir': still show the correct relative path in
+  matches from other windows, and restore the buffer's CWD even if it was
+  temporarily changed.
 
 1.11	03-Sep-2012
 - Make a:matchObj in CompleteHelper#ExtractText() optional; it's not used
