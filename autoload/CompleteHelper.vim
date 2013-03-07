@@ -5,12 +5,21 @@
 "   - CompleteHelper/Abbreviate.vim autoload script for
 "     CompleteHelper#Abbreviate()
 "
-" Copyright: (C) 2008-2012 Ingo Karkat
+" Copyright: (C) 2008-2013 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.31.016	07-Mar-2013	Avoid "E11: Invalid in command-line window"
+"				error when performing completions that search
+"				other windows from the command-line window. Use
+"				the buffer-search instead; it does not need to
+"				change the current window for its search.
+"				FIX: Don't abort iteration of buffers in
+"				s:FindMatchesInOtherBuffers() when one buffer
+"				was already searched; instead :continue with the
+"				next.
 "   1.30.015	27-Sep-2012	Optimization: Skip search in other windows where
 "				there's only one that got searched already by
 "				s:FindMatchesInCurrentWindow().
@@ -222,14 +231,14 @@ function! s:GetListedBufnrs()
     \   'buflisted(v:val)'
     \)
 endfunction
-function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, pattern, options )
-    for l:bufnr in s:GetListedBufnrs()
+function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, pattern, options, bufnrs )
+    for l:bufnr in a:bufnrs
 	if has_key(a:alreadySearchedBuffers, l:bufnr)
-	    return
+	    continue
 	endif
 	let a:alreadySearchedBuffers[l:bufnr] = 1
 	if ! s:ShouldBeSearched(a:options, l:bufnr)
-	    return
+	    continue
 	endif
 
 	let l:matchTemplate = {'menu': bufname(l:bufnr)}
@@ -318,9 +327,19 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 	if l:places ==# '.'
 	    call s:FindMatchesInCurrentWindow(l:searchedBuffers, a:matches, a:pattern, {}, a:options, 1)
 	elseif l:places ==# 'w'
-	    call s:FindMatchesInOtherWindows(l:searchedBuffers, a:matches, a:pattern, a:options)
+	    if &l:buftype ==# 'nofile' && (bufname('') ==# (v:version < 702 ? 'command-line' : '[Command Line]') || bufname('') ==# 'option-window')
+		" In the command-line window, we cannot temporarily leave it to
+		" search in other windows: "E11: Invalid in command-line
+		" window". Work around this by performing the buffer search for
+		" those visible buffers. (Unless a custom extractor is used.)
+		if ! has_key(a:options, 'extractor')
+		    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, a:pattern, a:options, tabpagebuflist())
+		endif
+	    else
+		call s:FindMatchesInOtherWindows(l:searchedBuffers, a:matches, a:pattern, a:options)
+	    endif
 	elseif l:places ==# 'b'
-	    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, a:pattern, a:options)
+	    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, a:pattern, a:options, s:GetListedBufnrs())
 	endif
     endfor
 endfunction

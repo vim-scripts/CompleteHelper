@@ -15,6 +15,15 @@ The following custom completions use this plugin:
 CamelCaseComplete:      Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)       anchor characters for each word fragment.
 
+MotionComplete:		Completes a chunk covered by queried {motion} or text
+(vimscript #4265)	object.
+			Derivatives:
+    BracketComplete	Completes text inside various brackets.
+    (vimscript #4266)
+
+    LineEndComplete	Completes the rest of the line.
+    (vimscript #4267)
+
 PatternComplete:	Completes matches of queried {pattern} or last search
 (vimscript #4248)	pattern.
 
@@ -23,6 +32,9 @@ PrevInsertComplete:	Recall and insert mode completion for previously
 
 SameFiletypeComplete:	Completion from buffers with the same filetype.
 (vimscript #4242)
+
+SnippetComplete:	Completes defined abbreviations and other snippets.
+(vimscript #2926)
 
 USAGE
 This plugin defines several functions. The following is an overview; you'll

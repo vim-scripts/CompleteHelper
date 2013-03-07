@@ -30,6 +30,8 @@ AlphaComplete:		Completes any sequence of alphabetic characters.
 
 BidiComplete:		Considers text before AND AFTER the cursor.
 
+BufNameComplete:	Completes filenames loaded in Vim.
+
 CamelCaseComplete:	Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)	anchor characters for each word fragment.
 
@@ -42,14 +44,20 @@ LongestComplete:	Completes based on the longest possible text before
 MinLengthComplete:	Only offers completions that add more than n
 			characters.
 
-MotionComplete:		Completes a text chunk determined by {motion} or text
-			object.
+MotionComplete:		Completes a chunk covered by queried {motion} or text
+(vimscript #4265)	object.
+			Derivatives:
+    BracketComplete	Completes text inside various brackets.
+    (vimscript #4266)
+
+    LineEndComplete	Completes the rest of the line.
+    (vimscript #4267)
 
 MultiWordComplete:	Completes a sequence of words based on anchor
 			characters for each word.
 
 PatternComplete:	Completes matches of queried {pattern} or last search
-			pattern.
+(vimscript #4248)	pattern.
 
 PrevInsertComplete:	Recall and insert mode completion for previously
 (vimscript #4185)	inserted text.
@@ -58,6 +66,9 @@ RegisterComplete:	Completes register contents.
 
 SameFiletypeComplete:	Completion from buffers with the same filetype.
 (vimscript #4242)
+
+SnippetComplete:	Completes defined abbreviations and other snippets.
+(vimscript #2926)
 
 WORDComplete:	    	Completes an entire sequence of non-blank characters.
 
@@ -163,6 +174,17 @@ IDEAS							*CompleteHelper-ideas*
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
 
+1.31	07-Mar-2013
+- Truncate to a bit less than half of Vim's width because the popup menu
+  spacing as well as fold, number and sign columns further reduce the
+  available space.
+- Avoid "E11: Invalid in command-line window" error when performing
+  completions that search other windows from the command-line window. Use the
+  buffer-search instead; it does not need to change the current window for its
+  search.
+- FIX: Don't abort iteration of buffers in s:FindMatchesInOtherBuffers() when
+  one buffer was already searched; instead :continue with the next.
+
 1.30	27-Sep-2012
 - ENH: Allow skipping of buffers via new a:options.bufferPredicate Funcref.
 - Optimization: Skip search in other windows where there's only one that got
@@ -196,7 +218,7 @@ First published version.
 Started development.
 
 ==============================================================================
-Copyright: (C) 2008-2012 Ingo Karkat
+Copyright: (C) 2008-2013 Ingo Karkat
 The VIM LICENSE applies to this script; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>

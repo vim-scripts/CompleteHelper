@@ -9,6 +9,7 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.31.003	16-Nov-2012	Truncate to a bit less than half of Vim's width.
 "   1.10.002	05-May-2012	ENH: Offer full completion word in the preview
 "				window when it is shown abbreviated. Clients get
 "				this automatically when using
@@ -30,7 +31,11 @@ function! CompleteHelper#Abbreviate#Translate( text )
     return l:text
 endfunction
 function! CompleteHelper#Abbreviate#Truncate( text )
-    let l:maxDisplayLen = &columns / 2
+    " Truncate to a bit less than half of Vim's width. Truncation may happen to
+    " both completion item and its menu text, and the popup menu spacing as well
+    " as fold, number and sign columns further reduce the available space.
+    let l:maxDisplayLen = &columns / 2 - 5
+
     " Optimization: As <Tab> characters should already have been translated via
     " CompleteHelper#Abbreviate#Translate(), and it's unlikely to have lines
     " containing mostly unprintable ASCII characters like ^V, we can assume that
