@@ -12,29 +12,43 @@ completion is quick and simple.
 SEE ALSO
 The following custom completions use this plugin:
 
+BidiComplete:           Considers text before AND AFTER the cursor.
+(vimscript #4658)
+
 CamelCaseComplete:      Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)       anchor characters for each word fragment.
 
-MotionComplete:		Completes a chunk covered by queried {motion} or text
-(vimscript #4265)	object.
-			Derivatives:
-    BracketComplete	Completes text inside various brackets.
+InnerFragmentComplete:  Completes (and expands CamelCaseWord) fragments inside
+(vimscript #4804)       words.
+
+MotionComplete:         Completes a chunk covered by queried {motion} or text
+(vimscript #4265)       object.
+                        Derivatives:
+    BracketComplete     Completes text inside various brackets.
     (vimscript #4266)
 
-    LineEndComplete	Completes the rest of the line.
+    LineEndComplete     Completes the rest of the line.
     (vimscript #4267)
 
-PatternComplete:	Completes matches of queried {pattern} or last search
-(vimscript #4248)	pattern.
+MultiWordComplete:      Completes a sequence of words based on anchor
+(vimscript #4805)       characters for each word.
 
-PrevInsertComplete:	Recall and insert mode completion for previously
-(vimscript #4185)	inserted text.
+PatternComplete:        Completes matches of queried {pattern} or last search
+(vimscript #4248)       pattern.
 
-SameFiletypeComplete:	Completion from buffers with the same filetype.
+PrevInsertComplete:     Recall and insert mode completion for previously
+(vimscript #4185)       inserted text.
+
+SameFiletypeComplete:   Completion from buffers with the same filetype.
 (vimscript #4242)
 
-SnippetComplete:	Completes defined abbreviations and other snippets.
+SnippetComplete:        Completes defined abbreviations and other snippets.
 (vimscript #2926)
+
+RELATED WORKS
+- Mark Weber's vim-addon-completion library
+  (https://github.com/MarcWeber/vim-addon-completion) has some functions to
+  switch between completions and to do CamelCase matching.
 
 USAGE
 This plugin defines several functions. The following is an overview; you'll
@@ -47,12 +61,10 @@ The main helper functions that finds all matches of a:pattern in buffers
 specified by a:options, and returns them in the List a:matches that can be
 returned as-is to Vim.
 
-
 CompleteHelper#ExtractText( startPos, endPos, matchObj )
 
 Low-level function for extracting text from the current buffer. This is the
 default extractor used by CompleteHelper#FindMatches().
-
 
 CompleteHelper#Abbreviate#Word( matchObj )
 
@@ -65,7 +77,6 @@ CompleteHelper#JoinMultiline( text )
 Can be used in CompleteHelper#FindMatches()'s a:options.processor if you want
 to flatten multi-line matches, as the current default behavior of Vim is not
 what users expect. (Newlines are inserted literally as ^@.)
-
 
 CompleteHelper#Repeat#TestForRepeat()
 

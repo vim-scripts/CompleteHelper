@@ -1,14 +1,15 @@
 " CompleteHelper/Abbreviate.vim: Utility functions to shorten completion items.
 "
 " DEPENDENCIES:
-"   - EchoWithoutScrolling.vim autoload script
+"   - ingo/avoidprompt.vim autoload script
 "
-" Copyright: (C) 2012 Ingo Karkat
+" Copyright: (C) 2012-2013 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.32.005	07-Jun-2013	Move EchoWithoutScrolling.vim into ingo-library.
 "   1.31.003	16-Nov-2012	Truncate to a bit less than half of Vim's width.
 "   1.10.002	05-May-2012	ENH: Offer full completion word in the preview
 "				window when it is shown abbreviated. Clients get
@@ -42,7 +43,7 @@ function! CompleteHelper#Abbreviate#Truncate( text )
     " one display column is represented by at least one byte in the text (or
     " more, in case of non-ASCII characters). So if there are less bytes, we
     " don't need to bother with truncation.
-    return (len(a:text) > l:maxDisplayLen ? EchoWithoutScrolling#TruncateTo(a:text, l:maxDisplayLen) : a:text)
+    return (len(a:text) > l:maxDisplayLen ? ingo#avoidprompt#TruncateTo(a:text, l:maxDisplayLen) : a:text)
 endfunction
 function! CompleteHelper#Abbreviate#Text( text )
 "******************************************************************************

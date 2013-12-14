@@ -29,6 +29,7 @@ The following custom completions use this plugin:
 AlphaComplete:		Completes any sequence of alphabetic characters.
 
 BidiComplete:		Considers text before AND AFTER the cursor.
+(vimscript #4658)
 
 BufNameComplete:	Completes filenames loaded in Vim.
 
@@ -38,8 +39,13 @@ CamelCaseComplete:	Expands CamelCaseWords and underscore_words based on
 CustomKeywordComplete:	Expands keywords from a sequence of contained
 			characters.
 
+InnerFragmentComplete:	Completes (and expands CamelCaseWord) fragments inside
+			words.
+
 LongestComplete:	Completes based on the longest possible text before
 			the cursor.
+
+MiddleEndComplete:	Completes base matches in the middle or end.
 
 MinLengthComplete:	Only offers completions that add more than n
 			characters.
@@ -71,6 +77,12 @@ SnippetComplete:	Completes defined abbreviations and other snippets.
 (vimscript #2926)
 
 WORDComplete:	    	Completes an entire sequence of non-blank characters.
+
+RELATED WORKS								     *
+
+- Mark Weber's vim-addon-completion library
+  (https://github.com/MarcWeber/vim-addon-completion) has some functions to
+  switch between completions and to do CamelCase matching.
 
 ==============================================================================
 USAGE							*CompleteHelper-usage*
@@ -152,6 +164,8 @@ To uninstall, use the |:RmVimball| command.
 DEPENDENCIES					 *CompleteHelper-dependencies*
 
 - Requires Vim 7.0 or higher.
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.014 or
+  higher.
 
 ==============================================================================
 LIMITATIONS					  *CompleteHelper-limitations*
@@ -173,6 +187,14 @@ IDEAS							*CompleteHelper-ideas*
 
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
+
+1.32	14-Dec-2013
+- ENH: Allow to pass a List of regular expressions to
+  CompleteHelper#FindMatches(). If you have multiple regular expressions that
+  can match at the same position and should yield separate matches, you cannot
+  use regular expression branches.
+- Add dependency to ingo-library (vimscript #4433). *** You need to separately
+  install ingo-library (vimscript #4433) version 1.014 (or higher)! ***
 
 1.31	07-Mar-2013
 - Truncate to a bit less than half of Vim's width because the popup menu
@@ -219,7 +241,7 @@ Started development.
 
 ==============================================================================
 Copyright: (C) 2008-2013 Ingo Karkat
-The VIM LICENSE applies to this script; see |copyright|.
+The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>
 ==============================================================================

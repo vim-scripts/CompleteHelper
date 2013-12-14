@@ -1,7 +1,8 @@
 " CompleteHelper.vim: Generic functions to support custom insert mode completions.
 "
 " DEPENDENCIES:
-"   - escapings.vim autoload script
+"   - ingo/compat.vim autoload script
+"   - ingo/list.vim autoload script
 "   - CompleteHelper/Abbreviate.vim autoload script for
 "     CompleteHelper#Abbreviate()
 "
@@ -11,6 +12,14 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.32.019	15-Oct-2013	Replace conditional with ingo#list#Make().
+"   1.32.018	02-Oct-2013	ENH: Allow to pass a List of regular expressions
+"				to CompleteHelper#FindMatches(). If you have
+"				multiple regular expressions that can match at
+"				the same position and should yield separate
+"				matches, you cannot use regular expression
+"				branches.
+"   1.32.017	08-Aug-2013	Move escapings.vim into ingo-library.
 "   1.31.016	07-Mar-2013	Avoid "E11: Invalid in command-line window"
 "				error when performing completions that search
 "				other windows from the command-line window. Use
@@ -140,7 +149,7 @@ function! s:AddMatch( matches, matchObj, matchText, options )
 	call add(a:matches, a:matchObj)
     endif
 endfunction
-function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern, matchTemplate, options, isInCompletionBuffer )
+function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, patterns, matchTemplate, options, isInCompletionBuffer )
     if has_key(a:alreadySearchedBuffers, bufnr(''))
 	return
     endif
@@ -153,37 +162,39 @@ function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern
 
     let l:save_cursor = getpos('.')
 
-    let l:firstMatchPos = [0,0]
-    while ! complete_check()
-	let l:matchPos = searchpos( a:pattern, 'w' . (l:isBackward ? 'b' : '') )
-	if l:matchPos == [0,0] || l:matchPos == l:firstMatchPos
-	    " Stop when no matches or wrapped around to first match.
-	    break
-	endif
-	if l:firstMatchPos == [0,0]
-	    " Record first match position to detect wrap-around.
-	    let l:firstMatchPos = l:matchPos
-	endif
+    for l:pattern in a:patterns
+	let l:firstMatchPos = [0,0]
+	while ! complete_check()
+	    let l:matchPos = searchpos( l:pattern, 'w' . (l:isBackward ? 'b' : '') )
+	    if l:matchPos == [0,0] || l:matchPos == l:firstMatchPos
+		" Stop when no matches or wrapped around to first match.
+		break
+	    endif
+	    if l:firstMatchPos == [0,0]
+		" Record first match position to detect wrap-around.
+		let l:firstMatchPos = l:matchPos
+	    endif
 
-	let l:matchEndPos = searchpos( a:pattern, 'cen' )
-	if a:isInCompletionBuffer && (l:matchEndPos == l:save_cursor[1:2])
-	    " Do not include a match ending at the cursor position; this is just
-	    " the completion base, and Vim would not offer this anyway. Such a
-	    " match can happen if a:base =~ a:pattern.
-	    continue
-	endif
+	    let l:matchEndPos = searchpos( l:pattern, 'cen' )
+	    if a:isInCompletionBuffer && (l:matchEndPos == l:save_cursor[1:2])
+		" Do not include a match ending at the cursor position; this is just
+		" the completion base, and Vim would not offer this anyway. Such a
+		" match can happen if a:base =~ l:pattern.
+		continue
+	    endif
 
-	" Initialize the match object and extract the match text.
-	let l:matchObj = copy(a:matchTemplate)
-	let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : CompleteHelper#ExtractText(l:matchPos, l:matchEndPos))
+	    " Initialize the match object and extract the match text.
+	    let l:matchObj = copy(a:matchTemplate)
+	    let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : CompleteHelper#ExtractText(l:matchPos, l:matchEndPos))
 
-	call s:AddMatch(a:matches, l:matchObj, l:matchText, a:options)
+	    call s:AddMatch(a:matches, l:matchObj, l:matchText, a:options)
 "****D echomsg '**** match from' string(l:matchPos) 'to' string(l:matchEndPos) l:matchText
-    endwhile
+	endwhile
 
-    call setpos('.', l:save_cursor)
+	call setpos('.', l:save_cursor)
+    endfor
 endfunction
-function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, pattern, options )
+function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, patterns, options )
     let l:originalWinNr = winnr()
     if winnr('$') == 1 && has_key(a:alreadySearchedBuffers, winbufnr(l:originalWinNr))
 	" There's only one window, and we have searched it already (probably via s:FindMatchesInCurrentWindow()).
@@ -212,7 +223,7 @@ function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, pattern,
 		execute 'noautocmd' l:winNr . 'wincmd w'
 
 		let l:matchTemplate = {'menu': bufname('')}
-		call s:FindMatchesInCurrentWindow(a:alreadySearchedBuffers, a:matches, a:pattern, l:matchTemplate, a:options, 0)
+		call s:FindMatchesInCurrentWindow(a:alreadySearchedBuffers, a:matches, a:patterns, l:matchTemplate, a:options, 0)
 	    endif
 	endfor
     finally
@@ -221,7 +232,7 @@ function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, pattern,
 
 	let &autochdir = l:save_autochdir
 	if getcwd() !=# l:save_cwd
-	    execute l:chdirCommand escapings#fnameescape(l:save_cwd)
+	    execute l:chdirCommand ingo#compat#fnameescape(l:save_cwd)
 	endif
     endtry
 endfunction
@@ -231,7 +242,7 @@ function! s:GetListedBufnrs()
     \   'buflisted(v:val)'
     \)
 endfunction
-function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, pattern, options, bufnrs )
+function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, patterns, options, bufnrs )
     for l:bufnr in a:bufnrs
 	if has_key(a:alreadySearchedBuffers, l:bufnr)
 	    continue
@@ -243,27 +254,29 @@ function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, pattern,
 
 	let l:matchTemplate = {'menu': bufname(l:bufnr)}
 
-	" We need to get all lines at once; there is no other way to remotely
-	" determine the number of lines in the other buffer.
-	for l:line in getbufline(l:bufnr, 1, '$')
-	    " Note: Do not just use matchstr() with {count}, because we cannot
-	    " reliably recognize whether an empty result just means "empty match
-	    " at {count}" or actually means "no more matches".
-	    let l:endPos = 0
-	    while 1
-		let l:startPos = l:endPos
-		let l:endPos = matchend(l:line, a:pattern, l:startPos)
-		if l:endPos == -1
-		    break
-		endif
+	for l:pattern in a:patterns
+	    " We need to get all lines at once; there is no other way to remotely
+	    " determine the number of lines in the other buffer.
+	    for l:line in getbufline(l:bufnr, 1, '$')
+		" Note: Do not just use matchstr() with {count}, because we cannot
+		" reliably recognize whether an empty result just means "empty match
+		" at {count}" or actually means "no more matches".
+		let l:endPos = 0
+		while 1
+		    let l:startPos = l:endPos
+		    let l:endPos = matchend(l:line, l:pattern, l:startPos)
+		    if l:endPos == -1
+			break
+		    endif
 
-		call s:AddMatch(a:matches, copy(l:matchTemplate), matchstr(l:line, a:pattern, l:startPos), a:options)
-	    endwhile
+		    call s:AddMatch(a:matches, copy(l:matchTemplate), matchstr(l:line, l:pattern, l:startPos), a:options)
+		endwhile
+	    endfor
+
+	    if complete_check()
+		break
+	    endif
 	endfor
-
-	if complete_check()
-	    break
-	endif
     endfor
 endfunction
 function! CompleteHelper#FindMatches( matches, pattern, options )
@@ -280,6 +293,10 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "		cp. :help complete-functions). Matches will be appended.
 "   a:pattern	Regular expression specifying what text will match as a
 "		completion candidate.
+"		If you have multiple regular expressions that can match at the
+"		same position and should yield separate matches, you cannot use
+"		regular expression branches. Instead, pass a List of regular
+"		expressions for a:pattern.
 "		Note: In the buffer where the completion takes place, Vim
 "		temporarily removes the a:base part (as passed to the
 "		complete-function) during the completion. This helps avoiding
@@ -313,7 +330,9 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "			    string, or empty string if the match should be
 "			    discarded. Alternatively, you can filter() / map()
 "			    the a:matches result returned from this function,
-"			    but passing in a function may be easier for you.
+"			    but passing in a function may be easier for you (and
+"			    may avoid that a lot of duplicates consume memory
+"			    unnecessarily).
 "   a:options.bufferPredicate   Funcref that decides whether a particular buffer
 "				should be searched. It is passed a buffer number
 "				and must return 0 when the buffer should be
@@ -322,10 +341,11 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "   a:matches
 "*******************************************************************************
     let l:complete = get(a:options, 'complete', '')
+    let l:patterns = ingo#list#Make(a:pattern)
     let l:searchedBuffers = {}
     for l:places in split(l:complete, ',')
 	if l:places ==# '.'
-	    call s:FindMatchesInCurrentWindow(l:searchedBuffers, a:matches, a:pattern, {}, a:options, 1)
+	    call s:FindMatchesInCurrentWindow(l:searchedBuffers, a:matches, l:patterns, {}, a:options, 1)
 	elseif l:places ==# 'w'
 	    if &l:buftype ==# 'nofile' && (bufname('') ==# (v:version < 702 ? 'command-line' : '[Command Line]') || bufname('') ==# 'option-window')
 		" In the command-line window, we cannot temporarily leave it to
@@ -333,13 +353,13 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 		" window". Work around this by performing the buffer search for
 		" those visible buffers. (Unless a custom extractor is used.)
 		if ! has_key(a:options, 'extractor')
-		    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, a:pattern, a:options, tabpagebuflist())
+		    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, l:patterns, a:options, tabpagebuflist())
 		endif
 	    else
-		call s:FindMatchesInOtherWindows(l:searchedBuffers, a:matches, a:pattern, a:options)
+		call s:FindMatchesInOtherWindows(l:searchedBuffers, a:matches, l:patterns, a:options)
 	    endif
 	elseif l:places ==# 'b'
-	    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, a:pattern, a:options, s:GetListedBufnrs())
+	    call s:FindMatchesInOtherBuffers(l:searchedBuffers, a:matches, l:patterns, a:options, s:GetListedBufnrs())
 	endif
     endfor
 endfunction
