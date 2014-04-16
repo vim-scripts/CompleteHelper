@@ -6,6 +6,7 @@ description			|CompleteHelper-description|
 usage				|CompleteHelper-usage|
 example				|CompleteHelper-example|
 installation			|CompleteHelper-installation|
+configuration			|CompleteHelper-configuration|
 limitations			|CompleteHelper-limitations|
 known problems			|CompleteHelper-known-problems|
 todo				|CompleteHelper-todo|
@@ -27,7 +28,7 @@ SEE ALSO								     *
 The following custom completions use this plugin:
 
 AlphaComplete:		Completes any sequence of alphabetic characters.
-
+(vimscript #4912)
 BidiComplete:		Considers text before AND AFTER the cursor.
 (vimscript #4658)
 
@@ -40,7 +41,10 @@ CustomKeywordComplete:	Expands keywords from a sequence of contained
 			characters.
 
 InnerFragmentComplete:	Completes (and expands CamelCaseWord) fragments inside
-			words.
+(vimscript #4804)	words.
+
+LineComplete:		Completes entire lines with looser matching that the
+(vimscript #4911)	built-in |i_CTRL-X_CTRL-L|.
 
 LongestComplete:	Completes based on the longest possible text before
 			the cursor.
@@ -60,7 +64,7 @@ MotionComplete:		Completes a chunk covered by queried {motion} or text
     (vimscript #4267)
 
 MultiWordComplete:	Completes a sequence of words based on anchor
-			characters for each word.
+(vimscript #4805)	characters for each word.
 
 PatternComplete:	Completes matches of queried {pattern} or last search
 (vimscript #4248)	pattern.
@@ -123,6 +127,14 @@ Some built-in completions support the repetition of a completion, so that
 subsequent words from the completion source are appended. This function allows
 to implement such a repetition for custom completions, too.
 
+DEBUGGING					    *CompleteHelper-debugging*
+
+To help you with developing your own plugins, you can make the plugin save the
+last used pattern(s) in a global variable, if it is defined: >
+    :let g:CompleteHelper_DebugPatterns = []
+    " Trigger custom completion.
+    :echo g:CompleteHelper_DebugPatterns
+<
 ==============================================================================
 EXAMPLE						      *CompleteHelper-example*
 
@@ -164,9 +176,21 @@ To uninstall, use the |:RmVimball| command.
 DEPENDENCIES					 *CompleteHelper-dependencies*
 
 - Requires Vim 7.0 or higher.
-- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.014 or
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.018 or
   higher.
 
+CONFIGURATION					*CompleteHelper-configuration*
+
+For a permanent configuration, put the following commands into your |vimrc|:
+				  *g:CompleteHelper_IsDefaultToBackwardSearch*
+When no a:options.backward_search is passed to CompleteHelper#FindMatches(),
+it defaults to backwards search, as this offers recent / preceding matches
+(which are likier to be recalled) first. If you don't want that, either
+explicitly pass the a:options.backward_search flag (especially do this if you
+offer both backward and forward matching mappings), or globally revert to the
+previous behavior via: >
+    let g:CompleteHelper_IsDefaultToBackwardSearch = 0
+<
 ==============================================================================
 LIMITATIONS					  *CompleteHelper-limitations*
 
@@ -187,6 +211,31 @@ IDEAS							*CompleteHelper-ideas*
 
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
+
+1.40	16-Apr-2014
+- Remove the duplicated implementation in CompleteHelper#ExtractText(),
+  deprecate it, and delegate to ingo#text#Get().
+- FIX: a:options.backward_search with falsy value also enables backward
+  search.
+- Add g:CompleteHelper_IsDefaultToBackwardSearch config var that lets
+  CompleteHelper#FindMatches() default to backwards search when no
+  a:options.backward_search is given. Since all of my custom completions don't
+  offer separate backward / forward mappings, and backward search (i.e.
+  offering first what got recently typed) makes more sense, default to
+  backward search from now on.
+- Allow to debug the pattern via :let g:CompleteHelper_DebugPatterns = [].
+- Allow completion repeats to continue repeating from following lines like the
+  built-in completions do: The newline plus any indent is removed, and just
+  the first word from the following line is matched. For this, the
+  CompleteHelper#Repeat#Processor() is offered.
+- I18N: Correctly handle repeats of (text ending with a) multi-byte character:
+  Instead of just subtracting one from the column, ask for an end-exclusive
+  text grab from ingo#text#Get().
+- Add CompleteHelper#Repeat#GetPattern() to encapsulate the common assembly of
+  the repeat pattern, especially the complex expressions with negative and
+  positive character expressions to emulate Vim's built-in completion repeat
+  behavior.
+  *** You need to update to ingo-library (vimscript #4433) version 1.018! ***
 
 1.32	14-Dec-2013
 - ENH: Allow to pass a List of regular expressions to
@@ -240,7 +289,7 @@ First published version.
 Started development.
 
 ==============================================================================
-Copyright: (C) 2008-2013 Ingo Karkat
+Copyright: (C) 2008-2014 Ingo Karkat
 The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>

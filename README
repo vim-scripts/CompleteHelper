@@ -12,6 +12,8 @@ completion is quick and simple.
 SEE ALSO
 The following custom completions use this plugin:
 
+AlphaComplete:          Completes any sequence of alphabetic characters.
+(vimscript #4912)
 BidiComplete:           Considers text before AND AFTER the cursor.
 (vimscript #4658)
 
@@ -20,6 +22,9 @@ CamelCaseComplete:      Expands CamelCaseWords and underscore_words based on
 
 InnerFragmentComplete:  Completes (and expands CamelCaseWord) fragments inside
 (vimscript #4804)       words.
+
+LineComplete:           Completes entire lines with looser matching that the
+(vimscript #4911)       built-in i_CTRL-X_CTRL-L.
 
 MotionComplete:         Completes a chunk covered by queried {motion} or text
 (vimscript #4265)       object.
@@ -83,6 +88,13 @@ CompleteHelper#Repeat#TestForRepeat()
 Some built-in completions support the repetition of a completion, so that
 subsequent words from the completion source are appended. This function allows
 to implement such a repetition for custom completions, too.
+
+DEBUGGING
+To help you with developing your own plugins, you can make the plugin save the
+last used pattern(s) in a global variable, if it is defined:
+    :let g:CompleteHelper_DebugPatterns = []
+    " Trigger custom completion.
+    :echo g:CompleteHelper_DebugPatterns
 
 EXAMPLE
 Here is a simple completion that completes the keywords in front of the cursor

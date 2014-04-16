@@ -3,15 +3,34 @@
 " DEPENDENCIES:
 "   - ingo/compat.vim autoload script
 "   - ingo/list.vim autoload script
+"   - ingo/text.vim autoload script
 "   - CompleteHelper/Abbreviate.vim autoload script for
 "     CompleteHelper#Abbreviate()
 "
-" Copyright: (C) 2008-2013 Ingo Karkat
+" Copyright: (C) 2008-2014 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.40.023	03-Apr-2014	Allow to debug the pattern via :let
+"				g:CompleteHelper_DebugPatterns = [].
+"   1.33.022	17-Jan-2014	Check for existence of 'autochdir'.
+"   1.33.021	07-Jan-2014	FIX: a:options.backward_search with falsy value
+"				also enables backward search.
+"				Add g:CompleteHelper_IsDefaultToBackwardSearch
+"				config var that lets
+"				CompleteHelper#FindMatches() default to
+"				backwards search when no
+"				a:options.backward_search is given. Since all of
+"				my custom completions don't offer separate
+"				backward / forward mappings, and backward search
+"				(i.e. offering first what got recently typed)
+"				makes more sense, default to backward search
+"				from now on.
+"   1.33.020	18-Dec-2013	Remove the duplicated implementation in
+"				CompleteHelper#ExtractText(), deprecate it, and
+"				delegate to ingo#text#Get().
 "   1.32.019	15-Oct-2013	Replace conditional with ingo#list#Make().
 "   1.32.018	02-Oct-2013	ENH: Allow to pass a List of regular expressions
 "				to CompleteHelper#FindMatches(). If you have
@@ -86,51 +105,22 @@
 "	002	17-Aug-2008	BF: Check for match not yet in the list still
 "				used match text, not object.
 "	001	13-Aug-2008	file creation
+let s:save_cpo = &cpo
+set cpo&vim
+
+if ! exists('g:CompleteHelper_IsDefaultToBackwardSearch')
+    let g:CompleteHelper_IsDefaultToBackwardSearch = 1
+endif
 
 function! s:ShouldBeSearched( options, bufnr )
     return ! has_key(a:options, 'bufferPredicate') || call(a:options.bufferPredicate, [a:bufnr])
 endfunction
 function! CompleteHelper#ExtractText( startPos, endPos, ... )
 "*******************************************************************************
-"* PURPOSE:
-"   Extract the text between a:startPos and a:endPos from the current buffer.
-"   Multiple lines will be delimited by a newline character.
-"* ASSUMPTIONS / PRECONDITIONS:
-"   none
-"* EFFECTS / POSTCONDITIONS:
-"   none
-"* INPUTS:
-"   a:startPos	    [line,col]
-"   a:endPos	    [line,col]
-"   a:matchObj	    The match object to be returned to the completion function.
-"		    This function does not need to set anything there, the
-"		    mandatory matchObj.word will be set from this function's
-"		    return value automatically (and with additional processing).
-"		    However, you _can_ modify other items if you deem necessary.
-"		    (E.g. add a note to matchObj.menu that the text was
-"		    truncated.)
-"* RETURN VALUES:
-"   string text; return an empty string to signal that no match should be added
-"   to the list of matches.
+"* DEPRECATED:
+"   Use ingo#text#Get() instead.
 "*******************************************************************************
-    let [l:line, l:column] = a:startPos
-    let [l:endLine, l:endColumn] = a:endPos
-    if l:line > l:endLine || (l:line == l:endLine && l:column > l:endColumn)
-	return ''
-    endif
-
-    let l:text = ''
-    while 1
-	if l:line == l:endLine
-	    let l:text .= matchstr( getline(l:line) . "\n", '\%' . l:column . 'c' . '.*\%' . (l:endColumn + 1) . 'c' )
-	    break
-	else
-	    let l:text .= matchstr( getline(l:line) . "\n", '\%' . l:column . 'c' . '.*' )
-	    let l:line += 1
-	    let l:column = 1
-	endif
-    endwhile
-    return l:text
+    return ingo#text#Get(a:startPos, a:endPos)
 endfunction
 function! s:AddMatch( matches, matchObj, matchText, options )
     let l:matchText = a:matchText
@@ -158,7 +148,10 @@ function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern
 	return
     endif
 
-    let l:isBackward = has_key(a:options, 'backward_search')
+    let l:isBackward = (has_key(a:options, 'backward_search') ?
+    \   a:options.backward_search :
+    \   g:CompleteHelper_IsDefaultToBackwardSearch
+    \)
 
     let l:save_cursor = getpos('.')
 
@@ -185,7 +178,7 @@ function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern
 
 	    " Initialize the match object and extract the match text.
 	    let l:matchObj = copy(a:matchTemplate)
-	    let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : CompleteHelper#ExtractText(l:matchPos, l:matchEndPos))
+	    let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : ingo#text#Get(l:matchPos, l:matchEndPos))
 
 	    call s:AddMatch(a:matches, l:matchObj, l:matchText, a:options)
 "****D echomsg '**** match from' string(l:matchPos) 'to' string(l:matchEndPos) l:matchText
@@ -214,8 +207,10 @@ function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, patterns
     " The 'autochdir' option adapts the CWD, so any (relative) filepath to the
     " filename in the other window would be omitted. Temporarily turn this off;
     " may be a little bit faster, too.
-    let l:save_autochdir = &autochdir
-    set noautochdir
+    if exists('+autochdir')
+	let l:save_autochdir = &autochdir
+	set noautochdir
+    endif
 
     try
 	for l:winNr in range(1, winnr('$'))
@@ -230,7 +225,9 @@ function! s:FindMatchesInOtherWindows( alreadySearchedBuffers, matches, patterns
 	execute 'noautocmd' l:originalWinNr . 'wincmd w'
 	silent! execute l:originalWindowLayout
 
-	let &autochdir = l:save_autochdir
+	if exists('l:save_autochdir')
+	    let &autochdir = l:save_autochdir
+	endif
 	if getcwd() !=# l:save_cwd
 	    execute l:chdirCommand ingo#compat#fnameescape(l:save_cwd)
 	endif
@@ -342,6 +339,13 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "*******************************************************************************
     let l:complete = get(a:options, 'complete', '')
     let l:patterns = ingo#list#Make(a:pattern)
+    if exists('g:CompleteHelper_DebugPatterns')
+	if type(g:CompleteHelper_DebugPatterns) == type([])
+	    let g:CompleteHelper_DebugPatterns = l:patterns
+	else
+	    echomsg '****' string(l:patterns)
+	endif
+    endif
     let l:searchedBuffers = {}
     for l:places in split(l:complete, ',')
 	if l:places ==# '.'
@@ -388,4 +392,6 @@ function! CompleteHelper#JoinMultiline( text )
     return (stridx(a:text, "\n") == -1 ? a:text : substitute(a:text, "\\%(\\s*\n\\)\\+\\s*", ' ', 'g'))
 endfunction
 
+let &cpo = s:save_cpo
+unlet s:save_cpo
 " vim: set ts=8 sts=4 sw=4 noexpandtab ff=unix fdm=syntax :
