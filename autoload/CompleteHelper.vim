@@ -3,6 +3,7 @@
 " DEPENDENCIES:
 "   - ingo/compat.vim autoload script
 "   - ingo/list.vim autoload script
+"   - ingo/pos.vim autoload script
 "   - ingo/text.vim autoload script
 "   - CompleteHelper/Abbreviate.vim autoload script for
 "     CompleteHelper#Abbreviate()
@@ -13,6 +14,12 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.41.024	30-Apr-2014	FIX: In the completion buffer, check for the
+"				cursor position being anywhere in the match, not
+"				just at the end. We must not only avoid matching
+"				the base, but any text around the cursor. This
+"				is especially important for completion repeats,
+"				to avoid offering text after the cursor.
 "   1.40.023	03-Apr-2014	Allow to debug the pattern via :let
 "				g:CompleteHelper_DebugPatterns = [].
 "   1.33.022	17-Jan-2014	Check for existence of 'autochdir'.
@@ -169,10 +176,14 @@ function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern
 	    endif
 
 	    let l:matchEndPos = searchpos( l:pattern, 'cen' )
-	    if a:isInCompletionBuffer && (l:matchEndPos == l:save_cursor[1:2])
-		" Do not include a match ending at the cursor position; this is just
-		" the completion base, and Vim would not offer this anyway. Such a
-		" match can happen if a:base =~ l:pattern.
+	    if a:isInCompletionBuffer && ingo#pos#IsInside(l:save_cursor[1:2], l:matchPos, l:matchEndPos)
+		" Do not include a match around the cursor position; this would
+		" either just return the completion base, which Vim would not
+		" offer anyway, or the completion base and following text, which
+		" is unlikely to be desired, and not offered by the built-in
+		" completions, neither. By avoiding this match, we may shrink
+		" down the completion list to a single match, which would be
+		" inserted immediately without the user having to choose one.
 		continue
 	    endif
 
@@ -181,7 +192,8 @@ function! s:FindMatchesInCurrentWindow( alreadySearchedBuffers, matches, pattern
 	    let l:matchText = (has_key(a:options, 'extractor') ? a:options.extractor(l:matchPos, l:matchEndPos, l:matchObj) : ingo#text#Get(l:matchPos, l:matchEndPos))
 
 	    call s:AddMatch(a:matches, l:matchObj, l:matchText, a:options)
-"****D echomsg '**** match from' string(l:matchPos) 'to' string(l:matchEndPos) l:matchText
+"****D echomsg '**** completion triggered from' string(l:save_cursor[1:2])
+"****D echomsg '**** match in' . (a:isInCompletionBuffer ? ' current' : '') 'buffer' bufnr('') 'from' string(l:matchPos) 'to' string(l:matchEndPos) string(l:matchText)
 	endwhile
 
 	call setpos('.', l:save_cursor)
