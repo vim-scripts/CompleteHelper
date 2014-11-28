@@ -14,6 +14,9 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.42.025	29-Jul-2014	getbufline() can only access loaded buffers, for
+"				completion from unloaded buffers, we need to use
+"				readfile().
 "   1.41.024	30-Apr-2014	FIX: In the completion buffer, check for the
 "				cursor position being anywhere in the match, not
 "				just at the end. We must not only avoid matching
@@ -251,6 +254,21 @@ function! s:GetListedBufnrs()
     \   'buflisted(v:val)'
     \)
 endfunction
+function! s:GetBufferLines( bufnr )
+    if bufloaded(a:bufnr)
+	return getbufline(a:bufnr, 1, '$')
+    else
+	" getbufline() can only access loaded buffers, for unloaded ones, we
+	" need to use readfile(). This has the downside of not considering the
+	" file's encoding, but Vim's built-in completion (in version 7.4.316)
+	" doesn't, neither (presumably because it also uses readfile()).
+	try
+	    return readfile(bufname(a:bufnr))
+	catch /^Vim\%((\a\+)\)\=:E484/ " E484: Can't open file
+	    return []
+	endtry
+    endif
+endfunction
 function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, patterns, options, bufnrs )
     for l:bufnr in a:bufnrs
 	if has_key(a:alreadySearchedBuffers, l:bufnr)
@@ -266,7 +284,7 @@ function! s:FindMatchesInOtherBuffers( alreadySearchedBuffers, matches, patterns
 	for l:pattern in a:patterns
 	    " We need to get all lines at once; there is no other way to remotely
 	    " determine the number of lines in the other buffer.
-	    for l:line in getbufline(l:bufnr, 1, '$')
+	    for l:line in s:GetBufferLines(l:bufnr)
 		" Note: Do not just use matchstr() with {count}, because we cannot
 		" reliably recognize whether an empty result just means "empty match
 		" at {count}" or actually means "no more matches".

@@ -80,6 +80,9 @@ SameFiletypeComplete:	Completion from buffers with the same filetype.
 SnippetComplete:	Completes defined abbreviations and other snippets.
 (vimscript #2926)
 
+StartEndComplete:	Completes keywords from a prefix-nonkeyword-suffix
+			base.
+
 WORDComplete:	    	Completes an entire sequence of non-blank characters.
 
 RELATED WORKS								     *
@@ -211,6 +214,10 @@ IDEAS							*CompleteHelper-ideas*
 
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
+
+1.42	27-Nov-2014
+- getbufline() can only access loaded buffers, for completion from unloaded
+  buffers, we need to use readfile().
 
 1.41	31-May-2014
 - FIX: In the completion buffer, check for the cursor position being anywhere
