@@ -20,6 +20,9 @@ BidiComplete:           Considers text before AND AFTER the cursor.
 CamelCaseComplete:      Expands CamelCaseWords and underscore_words based on
 (vimscript #3915)       anchor characters for each word fragment.
 
+EntryComplete:          Completes whole lines from designated files or
+(vimscript #5073)       buffers.
+
 InnerFragmentComplete:  Completes (and expands CamelCaseWord) fragments inside
 (vimscript #4804)       words.
 
@@ -62,9 +65,15 @@ directory.
 
 CompleteHelper#FindMatches( matches, pattern, options )
 
-The main helper functions that finds all matches of a:pattern in buffers
+The main helper function that finds all matches of a:pattern in buffers
 specified by a:options, and returns them in the List a:matches that can be
 returned as-is to Vim.
+
+CompleteHelper#Find( matches, Funcref, options )
+
+A generic alternative that doesn't prescribe using a regular expression match.
+Instead, a Funcref is passed to find and extract matches, reusing the window
+and buffer iteration functionality provided by this plugin.
 
 CompleteHelper#ExtractText( startPos, endPos, matchObj )
 
@@ -75,7 +84,6 @@ CompleteHelper#Abbreviate#Word( matchObj )
 
 Processes the match objects to make them prettier to display. Usually
 map()ed over the matches returned from CompleteHelper#FindMatches().
-
 
 CompleteHelper#JoinMultiline( text )
 
