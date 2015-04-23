@@ -53,12 +53,24 @@ SameFiletypeComplete:   Completion from buffers with the same filetype.
 SnippetComplete:        Completes defined abbreviations and other snippets.
 (vimscript #2926)
 
+SpecialLocationComplete:Completes special, configurable custom patterns.
+(vimscript #5120)
+
 RELATED WORKS
 - Mark Weber's vim-addon-completion library
   (https://github.com/MarcWeber/vim-addon-completion) has some functions to
   switch between completions and to do CamelCase matching.
 
 USAGE
+The options.complete attribute specifies what is searched, like the 'complete'
+option for built-in completions. The following (comma-separated) option values
+are currently supported:
+    - "." current buffer
+    - "w" buffers from other windows
+    - "b" other loaded buffers that are in the buffer list
+    - "u" unloaded buffers that are in the buffer list
+    - "U" buffers that are not in the buffer list
+
 This plugin defines several functions. The following is an overview; you'll
 find the details directly in the implementation files in the .vim/autoload/
 directory.

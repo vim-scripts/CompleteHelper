@@ -7,12 +7,49 @@
 "   - ingo/text.vim autoload script
 "   - CompleteHelper/Abbreviate.vim autoload script
 "
-" Copyright: (C) 2008-2014 Ingo Karkat
+" Copyright: (C) 2008-2015 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.51.031	07-Feb-2015	ENH: Keep previous (last accessed) window when
+"				searching through them for matches.
+"   1.51.030	04-Feb-2015	Regression: CompleteHelper#Find() causes "E121:
+"				Undefined variable: l:isStandardExtraction. The
+"				!has_key(a:options, 'extractor') condition isn't
+"				needed in this clone of
+"				CompleteHelper#FindMatches(), as there's no
+"				a:options.extractor property.
+"   1.51.029	12-Jan-2015	Don't consider the current buffer when
+"				a:options.complete does not contain "."; some
+"				completions may want to explicitly exclude the
+"				current buffer.
+"				CHG: Exclude unloaded buffers from
+"				a:options.complete = "b" and introduce "u"
+"				option value for those.
+"				Add "U" option value for unlisted (loaded and
+"				unloaded) buffers, like in the built-in
+"				'complete' option.
+"				DWIM: Check for a:options.extractor and then
+"				skip incompatible a:options.complete values.
+"				This allows MotionComplete.vim plugins to
+"				default to 'complete' values and prevents user
+"				misconfiguration.
+"				FIX: Also consider buffers from windows visible
+"				in other tab pages (by collecting their buffer
+"				numbers, not by actually visiting each tab
+"				page). This matters when a:options.complete does
+"				not contain "b" (or "u" when unlisted buffers
+"				are shown in a window).
+"   1.51.028	03-Jan-2015	Backwards compatibility: haslocaldir() doesn't
+"				exist in Vim 7.0.
+"				FIX: Duplicate matches when the additional match
+"				info is different. Only
+"				CompleteHelper#AddMatch() when the same
+"				a:match.word doesn't yet exist in a:matches; a
+"				test for existence of the same a:match object
+"				isn't sufficient due to the other attributes.
 "   1.50.027	18-Dec-2014	ENH: Add a:options.abbreviate and evaluate in
 "				CompleteHelper#AddMatch(). This saves completion
 "				plugins from doing an additional map() over the
@@ -135,8 +172,8 @@ if ! exists('g:CompleteHelper_IsDefaultToBackwardSearch')
     let g:CompleteHelper_IsDefaultToBackwardSearch = 1
 endif
 
-function! s:ShouldBeSearched( options, bufnr )
-    return ! has_key(a:options, 'bufferPredicate') || call(a:options.bufferPredicate, [a:bufnr])
+function! s:ShouldBeSearched( options, bufNr )
+    return ! has_key(a:options, 'bufferPredicate') || call(a:options.bufferPredicate, [a:bufNr])
 endfunction
 function! CompleteHelper#ExtractText( startPos, endPos, ... )
 "*******************************************************************************
@@ -162,7 +199,9 @@ function! CompleteHelper#AddMatch( matches, matchObj, matchText, options )
 
     " Only add if this is an actual match that is not yet in the list of
     " matches.
-    if ! empty(l:matchText) && index(a:matches, a:matchObj) == -1
+    if ! empty(l:matchText) && index(
+    \   map(copy(a:matches), 'v:val.word'),
+    \   l:matchText) == -1
 	call add(a:matches, a:matchObj)
     endif
 endfunction
@@ -212,11 +251,12 @@ function! s:MatchInCurrent( lines, matches, matchTemplate, options, isInCompleti
     endfor
 endfunction
 function! s:FindInCurrentWindow( alreadySearchedBuffers, matches, Funcref, matchTemplate, options, isInCompletionWindow )
-    if has_key(a:alreadySearchedBuffers, bufnr(''))
+    let l:originalBufNr = bufnr('')
+    if has_key(a:alreadySearchedBuffers, l:originalBufNr)
 	return
     endif
-    let a:alreadySearchedBuffers[bufnr('')] = 1
-    if ! s:ShouldBeSearched(a:options, bufnr(''))
+    let a:alreadySearchedBuffers[l:originalBufNr] = 1
+    if ! s:ShouldBeSearched(a:options, l:originalBufNr)
 	return
     endif
 
@@ -224,7 +264,9 @@ function! s:FindInCurrentWindow( alreadySearchedBuffers, matches, Funcref, match
 endfunction
 function! s:FindInOtherWindows( alreadySearchedBuffers, matches, Funcref, options )
     let l:originalWinNr = winnr()
-    if winnr('$') == 1 && has_key(a:alreadySearchedBuffers, winbufnr(l:originalWinNr))
+    let l:previousWinNr = winnr('#') ? winnr('#') : 1
+    let l:originalBufNr = bufnr('')
+    if winnr('$') == 1 && has_key(a:alreadySearchedBuffers, l:originalBufNr)
 	" There's only one window, and we have searched it already (probably via s:FindInCurrentWindow()).
 	return
     endif
@@ -237,7 +279,7 @@ function! s:FindInOtherWindows( alreadySearchedBuffers, matches, Funcref, option
     " Unfortunately, restoring the 'autochdir' option clobbers any temporary CWD
     " override. So we may have to restore the CWD, too.
     let l:save_cwd = getcwd()
-    let l:chdirCommand = (haslocaldir() ? 'lchdir!' : 'chdir!')
+    let l:chdirCommand = (exists('*haslocaldir') && haslocaldir() ? 'lchdir!' : 'chdir!')
 
     " The 'autochdir' option adapts the CWD, so any (relative) filepath to the
     " filename in the other window would be omitted. Temporarily turn this off;
@@ -249,7 +291,10 @@ function! s:FindInOtherWindows( alreadySearchedBuffers, matches, Funcref, option
 
     try
 	for l:winNr in range(1, winnr('$'))
-	    if ! has_key(a:alreadySearchedBuffers, winbufnr(l:winNr)) && s:ShouldBeSearched(a:options, winbufnr(l:winNr))
+	    let l:bufNr = winbufnr(l:winNr)
+	    if l:bufNr != l:originalBufNr &&
+	    \   ! has_key(a:alreadySearchedBuffers, l:bufNr) &&
+	    \   s:ShouldBeSearched(a:options, l:bufNr)
 		execute 'noautocmd' l:winNr . 'wincmd w'
 
 		let l:matchTemplate = {'menu': bufname('')}
@@ -257,7 +302,8 @@ function! s:FindInOtherWindows( alreadySearchedBuffers, matches, Funcref, option
 	    endif
 	endfor
     finally
-	execute 'noautocmd' l:originalWinNr . 'wincmd w'
+	noautocmd execute l:previousWinNr . 'wincmd w'
+	noautocmd execute l:originalWinNr . 'wincmd w'
 	silent! execute l:originalWindowLayout
 
 	if exists('l:save_autochdir')
@@ -268,22 +314,22 @@ function! s:FindInOtherWindows( alreadySearchedBuffers, matches, Funcref, option
 	endif
     endtry
 endfunction
-function! s:GetListedBufnrs()
+function! s:GetBufNrs( expr )
     return filter(
     \   range(1, bufnr('$')),
-    \   'buflisted(v:val)'
+    \   a:expr
     \)
 endfunction
-function! s:GetBufferLines( bufnr )
-    if bufloaded(a:bufnr)
-	return getbufline(a:bufnr, 1, '$')
+function! s:GetBufferLines( bufNr )
+    if bufloaded(a:bufNr)
+	return getbufline(a:bufNr, 1, '$')
     else
 	" getbufline() can only access loaded buffers, for unloaded ones, we
 	" need to use readfile(). This has the downside of not considering the
 	" file's encoding, but Vim's built-in completion (in version 7.4.316)
 	" doesn't, neither (presumably because it also uses readfile()).
 	try
-	    return readfile(bufname(a:bufnr))
+	    return readfile(bufname(a:bufNr))
 	catch /^Vim\%((\a\+)\)\=:E484/ " E484: Can't open file
 	    return []
 	endtry
@@ -312,21 +358,22 @@ function! s:MatchInBuffer( lines, matches, matchTemplate, options, isInCompletio
 	endif
     endfor
 endfunction
-function! s:FindInOtherBuffers( alreadySearchedBuffers, matches, Funcref, options, bufnrs )
-    for l:bufnr in a:bufnrs
-	if has_key(a:alreadySearchedBuffers, l:bufnr)
+function! s:FindInOtherBuffers( alreadySearchedBuffers, matches, Funcref, options, bufNrs )
+    let l:originalBufNr = bufnr('')
+    for l:bufNr in a:bufNrs
+	if l:bufNr == l:originalBufNr || has_key(a:alreadySearchedBuffers, l:bufNr)
 	    continue
 	endif
-	let a:alreadySearchedBuffers[l:bufnr] = 1
-	if ! s:ShouldBeSearched(a:options, l:bufnr)
+	let a:alreadySearchedBuffers[l:bufNr] = 1
+	if ! s:ShouldBeSearched(a:options, l:bufNr)
 	    continue
 	endif
 
-	let l:matchTemplate = {'menu': bufname(l:bufnr)}
+	let l:matchTemplate = {'menu': bufname(l:bufNr)}
 
 	" We need to get all lines at once; there is no other way to remotely
 	" determine the number of lines in the other buffer.
-	call call(a:Funcref, [s:GetBufferLines(l:bufnr), a:matches, l:matchTemplate, a:options, 0])
+	call call(a:Funcref, [s:GetBufferLines(l:bufNr), a:matches, l:matchTemplate, a:options, 0])
     endfor
 endfunction
 function! CompleteHelper#FindMatches( matches, pattern, options )
@@ -363,9 +410,12 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "		within single lines.
 "   a:options	Dictionary with match configuration:
 "   a:options.complete	    Specifies what is searched, like the 'complete'
-"			    option. Supported options: '.' for current buffer,
-"			    'w' for buffers from other windows, 'b' for other
-"			    loaded buffers from the buffer list.
+"			    option. Supported options:
+"			    - "." current buffer
+"			    - "w" buffers from other windows
+"			    - "b" other loaded buffers that are in the buffer list
+"			    - "u" unloaded buffers that are in the buffer list
+"			    - "U" buffers that are not in the buffer list
 "   a:options.backward_search	Flag whether to search backwards from the cursor
 "				position.
 "   a:options.extractor	    Funcref that extracts the matched text from the
@@ -374,7 +424,8 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 "			    with the cursor positioned at the start of the
 "			    current match; must return string; can modify the
 "			    initial matchObj.
-"			    Note: Is not used for a:options.complete = 'b'.
+"			    Note: When this is set, only the following
+"			    a:options.complete are used: "." and "w".
 "   a:options.processor	    Funcref that processes matches. Will be invoked with
 "			    an a:matchText argument; must return processed
 "			    string, or empty string if the match should be
@@ -401,6 +452,7 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 	    echomsg '****' string(s:patterns)
 	endif
     endif
+    let l:isStandardExtraction = ! has_key(a:options, 'extractor')
     let l:searchedBuffers = {}
     for l:places in split(l:complete, ',')
 	if l:places ==# '.'
@@ -411,14 +463,30 @@ function! CompleteHelper#FindMatches( matches, pattern, options )
 		" search in other windows: "E11: Invalid in command-line
 		" window". Work around this by performing the buffer search for
 		" those visible buffers. (Unless a custom extractor is used.)
-		if ! has_key(a:options, 'extractor')
+		if l:isStandardExtraction
 		    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, tabpagebuflist())
 		endif
 	    else
 		call s:FindInOtherWindows(l:searchedBuffers, a:matches, function('s:MatchInCurrent'), a:options)
 	    endif
-	elseif l:places ==# 'b'
-	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, s:GetListedBufnrs())
+
+	    if tabpagenr('$') > 1 && l:isStandardExtraction
+		" Instead of visiting all the tab pages, determine the
+		" corresponding buffer numbers and search those. The only
+		" downside is that it won't work with a custom extractor.
+		let l:bufNrsInOtherTabPages = []
+		for l:i in filter(range(1, tabpagenr('$')), 'v:val != ' . tabpagenr())
+		    call extend(l:bufNrsInOtherTabPages, tabpagebuflist(l:i))
+		endfor
+
+		call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, l:bufNrsInOtherTabPages)
+	    endif
+	elseif l:places ==# 'b' && l:isStandardExtraction
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, s:GetBufNrs('buflisted(v:val) && bufloaded(v:val)'))
+	elseif l:places ==# 'u' && l:isStandardExtraction
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, s:GetBufNrs('buflisted(v:val) && ! bufloaded(v:val)'))
+	elseif l:places ==# 'U' && l:isStandardExtraction
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, function('s:MatchInBuffer'), a:options, s:GetBufNrs('! buflisted(v:val)'))
 	endif
     endfor
     unlet s:patterns
@@ -452,9 +520,12 @@ function! CompleteHelper#Find( matches, Funcref, options )
 "					matches at the cursor position).
 "   a:options	Dictionary with Funcref configuration:
 "   a:options.complete	    Specifies what is searched, like the 'complete'
-"			    option. Supported options: '.' for current buffer,
-"			    'w' for buffers from other windows, 'b' for other
-"			    loaded buffers from the buffer list.
+"			    option. Supported options:
+"			    - "." current buffer
+"			    - "w" buffers from other windows
+"			    - "b" other loaded buffers that are in the buffer list
+"			    - "u" unloaded buffers that are in the buffer list
+"			    - "U" buffers that are not in the buffer list
 "   a:options.bufferPredicate   Funcref that decides whether a particular buffer
 "				should be searched. It is passed a buffer number
 "				and must return 0 when the buffer should be
@@ -474,15 +545,28 @@ function! CompleteHelper#Find( matches, Funcref, options )
 		" In the command-line window, we cannot temporarily leave it to
 		" search in other windows: "E11: Invalid in command-line
 		" window". Work around this by performing the buffer search for
-		" those visible buffers. (Unless a custom extractor is used.)
-		if ! has_key(a:options, 'extractor')
-		    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, tabpagebuflist())
-		endif
+		" those visible buffers.
+		call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, tabpagebuflist())
 	    else
 		call s:FindInOtherWindows(l:searchedBuffers, a:matches, a:Funcref, a:options)
 	    endif
+
+	    if tabpagenr('$') > 1
+		" Instead of visiting all the tab pages, determine the
+		" corresponding buffer numbers and search those.
+		let l:bufNrsInOtherTabPages = []
+		for l:i in filter(range(1, tabpagenr('$')), 'v:val != ' . tabpagenr())
+		    call extend(l:bufNrsInOtherTabPages, tabpagebuflist(l:i))
+		endfor
+
+		call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, l:bufNrsInOtherTabPages)
+	    endif
 	elseif l:places ==# 'b'
-	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, s:GetListedBufnrs())
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, s:GetBufNrs('buflisted(v:val) && bufloaded(v:val)'))
+	elseif l:places ==# 'u'
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, s:GetBufNrs('buflisted(v:val) && ! bufloaded(v:val)'))
+	elseif l:places ==# 'U'
+	    call s:FindInOtherBuffers(l:searchedBuffers, a:matches, a:Funcref, a:options, s:GetBufNrs('! buflisted(v:val)'))
 	endif
     endfor
 endfunction

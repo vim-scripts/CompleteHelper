@@ -41,7 +41,7 @@ CustomKeywordComplete:	Expands keywords from a sequence of contained
 			characters.
 
 EntryComplete:		Completes whole lines from designated files or
-			buffers.
+(vimscript #5073)	buffers.
 
 InnerFragmentComplete:	Completes (and expands CamelCaseWord) fragments inside
 (vimscript #4804)	words.
@@ -85,6 +85,9 @@ SameFiletypeComplete:	Completion from buffers with the same filetype.
 SnippetComplete:	Completes defined abbreviations and other snippets.
 (vimscript #2926)
 
+SpecialLocationComplete:Completes special, configurable custom patterns.
+(vimscript #5120)
+
 StartEndComplete:	Completes keywords from a prefix-nonkeyword-suffix
 			base.
 
@@ -98,7 +101,17 @@ RELATED WORKS								     *
 
 ==============================================================================
 USAGE							*CompleteHelper-usage*
+						     *CompleteHelper_complete*
+The options.complete attribute specifies what is searched, like the 'complete'
+option for built-in completions. The following (comma-separated) option values
+are currently supported:
+    - "." current buffer
+    - "w" buffers from other windows
+    - "b" other loaded buffers that are in the buffer list
+    - "u" unloaded buffers that are in the buffer list
+    - "U" buffers that are not in the buffer list
 
+						    *CompleteHelper-functions*
 This plugin defines several functions. The following is an overview; you'll
 find the details directly in the implementation files in the .vim/autoload/
 directory.
@@ -226,6 +239,28 @@ IDEAS							*CompleteHelper-ideas*
 ==============================================================================
 HISTORY						      *CompleteHelper-history*
 
+1.51	23-Apr-2015
+- Backwards compatibility: haslocaldir() doesn't exist in Vim 7.0.
+- FIX: Duplicate matches when the additional match info is different. Only
+  CompleteHelper#AddMatch() when the same a:match.word doesn't yet exist in
+  a:matches; a test for existence of the same a:match object isn't sufficient
+  due to the other attributes.
+- Don't consider the current buffer when a:options.complete does not contain
+  "."; some completions may want to explicitly exclude the current buffer.
+- CHG: Exclude unloaded buffers from a:options.complete = "b" and introduce
+  "u" option value for those.
+- Add "U" option value for unlisted (loaded and unloaded) buffers, like in the
+  built-in 'complete' option.
+- DWIM: Check for a:options.extractor and then skip incompatible
+  a:options.complete values. This allows MotionComplete.vim plugins to default
+  to 'complete' values and prevents user misconfiguration.
+- FIX: Also consider buffers from windows visible in other tab pages (by
+  collecting their buffer numbers, not by actually visiting each tab page).
+  This matters when a:options.complete does not contain "b" (or "u" when
+  unlisted buffers are shown in a window).
+- ENH: Keep previous (last accessed) window when searching through them for
+  matches.
+
 1.50	23-Dec-2014
 - Split the match extraction via pattern match from the window / buffer
   iteration, which now takes a generic Funcref, allowing for other algorithms:
@@ -326,7 +361,7 @@ First published version.
 Started development.
 
 ==============================================================================
-Copyright: (C) 2008-2014 Ingo Karkat
+Copyright: (C) 2008-2015 Ingo Karkat
 The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>
